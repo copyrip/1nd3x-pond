@@ -3,7 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
 
-const app = require('./app'); // Import express app
+const app = require('./public/app'); // Import express app
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
