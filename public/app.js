@@ -1,59 +1,104 @@
 const socket = io();
 
-let myName = `User${Math.floor(Math.random() * 1000)}`;
-let myCursorColor = '#ff0000';
-let myUsernameColor = '#0000ff';
+let userId;
+let users = {};
 
-const userPoints = document.getElementById('points');
-const userList = document.getElementById('userList');
-const connectedUsers = document.getElementById('connectedUsers');
-const systemPopup = document.getElementById('systemPopup');
-const systemOk = document.getElementById('systemOk');
+const pointsDiv = document.getElementById('points');
+const userList = document.getElementById('users');
+const userCount = document.getElementById('userCount');
+const pingSpan = document.getElementById('ping');
 
-function updateCursor(color) {
-    document.body.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" height="32" width="32"><polygon points="0,0 0,32 8,24" fill="${color}"/></svg>') 0 0, auto`;
-}
+const systemBtn = document.getElementById('systemBtn');
 
-updateCursor(myCursorColor);
-
-// Send user data to server
-socket.emit('updateUser', { name: myName, cursorColor: myCursorColor, usernameColor: myUsernameColor });
-
-// Handle system clicks
-systemOk.addEventListener('click', () => {
-    socket.emit('clickPoint', 1);
+// Cursor movement
+document.addEventListener('mousemove', (e) => {
+    socket.emit('cursorMove', { x: e.clientX, y: e.clientY });
 });
 
-// Random "I'd prefer not to" popup
-function spawnRandomBonus() {
-    const bonusButton = document.createElement('button');
-    bonusButton.textContent = "I'd prefer not to";
-    bonusButton.style.position = 'absolute';
-    bonusButton.style.left = `${Math.random() * 80 + 10}%`;
-    bonusButton.style.top = `${Math.random() * 80 + 10}%`;
-    document.body.appendChild(bonusButton);
+// Click buttons
+systemBtn.addEventListener('click', () => {
+    socket.emit('click');
+});
 
-    bonusButton.addEventListener('click', () => {
-        socket.emit('clickPoint', 10);
-        bonusButton.remove();
+// Random "I'd prefer not to" button
+function spawnBigButton() {
+    const bigBtn = document.createElement('button');
+    bigBtn.innerText = "I'd prefer not to";
+    bigBtn.style.top = `${Math.random()*window.innerHeight}px`;
+    bigBtn.style.left = `${Math.random()*window.innerWidth}px`;
+    document.body.appendChild(bigBtn);
+
+    bigBtn.addEventListener('click', () => {
+        socket.emit('bigClick');
+        document.body.removeChild(bigBtn);
     });
 
-    const nextSpawn = Math.random() * (180000 - 50000) + 50000; // 50s to 3min
-    setTimeout(spawnRandomBonus, nextSpawn);
+    // Remove after 10s if not clicked
+    setTimeout(() => bigBtn.remove(), 10000);
+    setTimeout(spawnBigButton, Math.random()*130000 + 50000); // 50s - 3min
 }
+setTimeout(spawnBigButton, Math.random()*130000 + 50000);
 
-setTimeout(spawnRandomBonus, Math.random() * (180000 - 50000) + 50000);
+// Initialize
+socket.on('init', (data) => {
+    userId = data.id;
+    users = data.users;
+    updateUserList();
+});
 
-// Update user list
-socket.on('updateUsers', (users) => {
-    userPoints.textContent = `Points: ${users[socket.id]?.points || 0}`;
-    connectedUsers.textContent = `Connected users: ${Object.keys(users).length}`;
+// Update users
+socket.on('updateUsers', (updatedUsers) => {
+    users = updatedUsers;
+    updateUserList();
+    pointsDiv.innerText = `Points: ${users[userId]?.points || 0}`;
+});
 
+function updateUserList() {
     userList.innerHTML = '';
+    userCount.innerText = Object.keys(users).length;
     Object.values(users).forEach(u => {
         const li = document.createElement('li');
-        const connectedTime = Math.floor((Date.now() - u.connectedAt) / 1000);
-        li.innerHTML = `<span style="color:${u.usernameColor}">${u.name}</span> - ${connectedTime}s - ${u.points} points`;
+        const timeOnline = Math.floor((Date.now() - u.startTime)/1000);
+        li.innerText = `${u.username} | ${u.points} pts | ${timeOnline}s`;
+        li.style.color = u.nameColor;
         userList.appendChild(li);
     });
+}
+
+// Click effects
+socket.on('clickEffect', ({ id }) => {
+    const img = document.createElement('img');
+    img.src = "https://media.giphy.com/media/l0Exk8EUzSLsrErEQ/giphy.gif"; // example click animation
+    img.className = 'clickEffect';
+    const user = users[id];
+    if(!user) return;
+    img.style.left = `${user.x || 0}px`;
+    img.style.top = `${user.y || 0}px`;
+    document.body.appendChild(img);
+    setTimeout(() => img.remove(), 500);
 });
+
+// Cursor rendering
+setInterval(() => {
+    document.querySelectorAll('.cursor').forEach(c => c.remove());
+    Object.values(users).forEach(u => {
+        if(!u.x || !u.y) return;
+        const div = document.createElement('div');
+        div.className = 'cursor';
+        div.style.left = u.x + 'px';
+        div.style.top = u.y + 'px';
+        div.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24">
+            <polygon points="0,0 0,24 6,18 12,24" fill="${u.cursorColor}"/>
+        </svg><div style="color:${u.nameColor}; font-size:12px;">${u.username}</div>`;
+        document.body.appendChild(div);
+    });
+}, 50);
+
+// Ping
+setInterval(() => {
+    const start = Date.now();
+    socket.emit('pingCheck');
+    socket.once('pongCheck', () => {
+        pingSpan.innerText = `${Date.now() - start}ms`;
+    });
+}, 2000);

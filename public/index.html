@@ -4,24 +4,24 @@
 <meta charset="UTF-8">
 <title>Multiplayer Cookie Clicker</title>
 <style>
-body { font-family: Arial; background: #f0f0f0; margin: 20px; }
-#systemPopup { padding: 20px; background: white; border: 1px solid black; display: inline-block; cursor: default; }
-#userList { list-style: none; padding-left: 0; }
-#controls { margin-top: 20px; }
+    body { margin:0; overflow:hidden; background:#f0f0f0; font-family:sans-serif; }
+    .cursor { position:absolute; pointer-events:none; text-align:center; }
+    .userList { position:fixed; top:10px; right:10px; background:#fff; padding:10px; border-radius:8px; }
+    #points { position:fixed; top:10px; left:10px; font-weight:bold; }
+    button { position:absolute; padding:10px 20px; cursor:pointer; }
+    .clickEffect { position:absolute; width:32px; height:32px; pointer-events:none; animation: pop 0.5s forwards; }
+    @keyframes pop { 0%{opacity:1;transform:scale(0.5);} 100%{opacity:0;transform:scale(1.5);} }
 </style>
 </head>
 <body>
-<h1>Multiplayer Cookie Clicker</h1>
 <div id="points">Points: 0</div>
-<div id="connectedUsers">Connected users: 0</div>
-<ul id="userList"></ul>
-
-<div id="controls"></div>
-
-<div id="systemPopup">
-    <p>System.exe stop to function</p>
-    <button id="systemOk">Ok</button>
+<div class="userList">
+    <div>Connected users: <span id="userCount">0</span></div>
+    <ul id="users"></ul>
+    <div>Ping: <span id="ping">0ms</span></div>
 </div>
+
+<button id="systemBtn" style="top:50%; left:50%;">System.exe stop to function</button>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="app.js"></script>
