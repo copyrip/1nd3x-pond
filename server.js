@@ -1,31 +1,35 @@
-import express from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-  },
-});
+const io = new Server(server);
 
-const PORT = process.env.PORT || 3001;
+app.use(express.static(path.join(__dirname, 'public')));
 
 let users = {};
 
 io.on('connection', (socket) => {
-    const joinTime = Date.now();
-    users[socket.id] = { username: `User${Math.floor(Math.random()*1000)}`, points: 0, joinTime };
+    console.log(`User connected: ${socket.id}`);
 
-    socket.emit('yourID', socket.id);
+    // Initialize user
+    users[socket.id] = {
+        name: `User${Math.floor(Math.random() * 1000)}`,
+        points: 0,
+        cursorColor: '#ff0000',
+        usernameColor: '#0000ff',
+        connectedAt: Date.now()
+    };
+
+    // Notify all clients
     io.emit('updateUsers', users);
 
-    socket.on('updateUser', ({ username, color, cursorColor }) => {
+    // Handle updates from client
+    socket.on('updateUser', (data) => {
         if (users[socket.id]) {
-            users[socket.id].username = username;
-            users[socket.id].color = color;
-            users[socket.id].cursorColor = cursorColor;
+            users[socket.id] = { ...users[socket.id], ...data };
             io.emit('updateUsers', users);
         }
     });
@@ -38,9 +42,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        console.log(`User disconnected: ${socket.id}`);
         delete users[socket.id];
         io.emit('updateUsers', users);
     });
 });
 
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
