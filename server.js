@@ -1,41 +1,46 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  maxHttpBufferSize: 1e6, // 1MB max per message
+  cors: {
+    origin: "*",
+  },
 });
 
-app.use(express.static('public'));
+const PORT = process.env.PORT || 3001;
 
-const PORT = process.env.PORT || 3000;
-
-// Store user cursors
 let users = {};
 
-// Throttle broadcasting to 30 FPS
-let lastBroadcast = 0;
-const BROADCAST_INTERVAL = 33; // ms ~30FPS
-
 io.on('connection', (socket) => {
-  users[socket.id] = {};
+    const joinTime = Date.now();
+    users[socket.id] = { username: `User${Math.floor(Math.random()*1000)}`, points: 0, joinTime };
 
-  socket.on('cursor-move', (data) => {
-    users[socket.id] = data;
+    socket.emit('yourID', socket.id);
+    io.emit('updateUsers', users);
 
-    const now = Date.now();
-    if (now - lastBroadcast > BROADCAST_INTERVAL) {
-      io.emit('cursors-update', users);
-      lastBroadcast = now;
-    }
-  });
+    socket.on('updateUser', ({ username, color, cursorColor }) => {
+        if (users[socket.id]) {
+            users[socket.id].username = username;
+            users[socket.id].color = color;
+            users[socket.id].cursorColor = cursorColor;
+            io.emit('updateUsers', users);
+        }
+    });
 
-  socket.on('disconnect', () => {
-    delete users[socket.id];
-    io.emit('cursors-update', users);
-  });
+    socket.on('clickPoint', (points) => {
+        if (users[socket.id]) {
+            users[socket.id].points += points;
+            io.emit('updateUsers', users);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        delete users[socket.id];
+        io.emit('updateUsers', users);
+    });
 });
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

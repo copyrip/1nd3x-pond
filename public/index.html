@@ -1,108 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Shared Cursors</title>
-  <style>
-    body { margin:0; height:100vh; overflow:hidden; cursor:none; background:#fafafa; }
-    .cursor { position:absolute; pointer-events:none; transform:translate(-50%, -50%); text-align:center; font-family:sans-serif; }
-    .username { font-size:12px; color:#333; margin-top:-15px; }
-    .controls { position:fixed; top:10px; left:10px; background:rgba(255,255,255,0.9); padding:12px; border-radius:8px; font-size:16px; z-index:999; }
-    .controls input, .controls select { margin:6px; font-size:16px; }
-  </style>
+<meta charset="UTF-8">
+<title>Multiplayer Cookie Clicker</title>
+<style>
+    body { font-family: Arial; background: #f0f0f0; margin: 20px; }
+    #systemPopup { padding: 20px; background: white; border: 1px solid black; display: inline-block; cursor: default; }
+    #userList { list-style: none; padding-left: 0; }
+</style>
 </head>
 <body>
-  <div class="controls">
-    Username: <input id="username" placeholder="Enter name">
-    Cursor Color: <input type="color" id="color" value="#ff0000">
-    Hat: 
-    <select id="hat">
-      <option value="">None</option>
-      <option value="https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif">Party</option>
-      <option value="https://media.giphy.com/media/26BRzozg4TCBXv6QU/giphy.gif">Top Hat</option>
-    </select>
-  </div>
+<h1>Multiplayer Cookie Clicker</h1>
+<div id="points">Points: 0</div>
+<div id="connectedUsers">Connected users: 0</div>
+<ul id="userList"></ul>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const cursors = {};
+<div id="systemPopup">
+    <p>System.exe stop to function</p>
+    <button id="systemOk">Ok</button>
+</div>
 
-    let username = '';
-    let color = '#ff0000';
-    let hat = '';
-
-    const cursorEl = document.createElement('div');
-    cursorEl.classList.add('cursor');
-    cursorEl.innerHTML = '<div id="hat-img"></div><div class="username" id="user-label"></div>';
-    document.body.appendChild(cursorEl);
-
-    const hatImg = document.getElementById('hat-img');
-    const userLabel = document.getElementById('user-label');
-
-    // Update settings
-    document.getElementById('username').addEventListener('input', e => username = e.target.value);
-    document.getElementById('color').addEventListener('input', e => color = e.target.value);
-    document.getElementById('hat').addEventListener('change', e => {
-      hat = e.target.value;
-      hatImg.innerHTML = hat ? `<img src="${hat}" width="32" height="32">` : '';
-    });
-
-    // Throttle cursor updates (~30 FPS)
-    let lastEmit = 0;
-    function handlePointerMove(x, y) {
-      cursorEl.style.left = x + 'px';
-      cursorEl.style.top = y + 'px';
-      userLabel.textContent = username;
-      userLabel.style.color = color;
-
-      const now = Date.now();
-      if (now - lastEmit > 33) { // ~30 FPS
-        socket.emit('cursor-move', { x, y, username, color, hat });
-        lastEmit = now;
-      }
-    }
-
-    // Mouse
-    document.addEventListener('mousemove', e => handlePointerMove(e.clientX, e.clientY));
-
-    // Touch
-    document.addEventListener('touchmove', e => {
-      if (e.touches.length > 0) {
-        const touch = e.touches[0];
-        handlePointerMove(touch.clientX, touch.clientY);
-      }
-    }, { passive: false });
-
-    // Receive other users
-    socket.on('cursors-update', data => {
-      for (let id in data) {
-        if (id === socket.id) continue;
-
-        if (!cursors[id]) {
-          const el = document.createElement('div');
-          el.classList.add('cursor');
-          el.innerHTML = '<div class="hat"></div><div class="username"></div>';
-          document.body.appendChild(el);
-          cursors[id] = el;
-        }
-
-        const c = cursors[id];
-        c.style.left = data[id].x + 'px';
-        c.style.top = data[id].y + 'px';
-        c.querySelector('.username').textContent = data[id].username;
-        c.querySelector('.username').style.color = data[id].color;
-        c.querySelector('.hat').innerHTML = data[id].hat ? `<img src="${data[id].hat}" width="32" height="32">` : '';
-      }
-
-      // Remove disconnected users
-      for (let id in cursors) {
-        if (!data[id]) {
-          cursors[id].remove();
-          delete cursors[id];
-        }
-      }
-    });
-  </script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
