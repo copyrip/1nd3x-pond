@@ -102,3 +102,18 @@ setInterval(() => {
         pingSpan.innerText = `${Date.now() - start}ms`;
     });
 }, 2000);
+
+// Customization panel
+const cursorColorInput = document.getElementById('cursorColor');
+const nameColorInput = document.getElementById('nameColor');
+const usernameInput = document.getElementById('usernameInput');
+const applyBtn = document.getElementById('applyBtn');
+
+applyBtn.addEventListener('click', () => {
+    const cursorColor = cursorColorInput.value;
+    const nameColor = nameColorInput.value;
+    const username = usernameInput.value.trim() || users[userId].username;
+
+    socket.emit('customize', { cursorColor, nameColor });
+    socket.emit('setUsername', username);  // New event for username change
+});

@@ -62,6 +62,14 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('setUsername', (newName) => {
+    if(users[socket.id]) {
+        users[socket.id].username = newName;
+        io.emit('updateUsers', users);
+    }
+});
+
+
     socket.on('disconnect', () => {
         delete users[socket.id];
         io.emit('updateUsers', users);

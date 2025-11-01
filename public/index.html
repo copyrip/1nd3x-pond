@@ -14,6 +14,22 @@
 </style>
 </head>
 <body>
+  <div id="customizePanel" style="position:fixed; bottom:10px; left:10px; background:#fff; padding:10px; border-radius:8px;">
+    <div>
+        <label>Cursor Color: </label>
+        <input type="color" id="cursorColor" value="#ff0000">
+    </div>
+    <div>
+        <label>Username Color: </label>
+        <input type="color" id="nameColor" value="#000000">
+    </div>
+    <div>
+        <label>Username: </label>
+        <input type="text" id="usernameInput" maxlength="12">
+    </div>
+    <button id="applyBtn">Apply</button>
+</div>
+
 <div id="points">Points: 0</div>
 <div class="userList">
     <div>Connected users: <span id="userCount">0</span></div>
