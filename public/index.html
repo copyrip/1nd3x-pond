@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fish Follower</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(#aef, #58c);
+      height: 100vh;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="pond"></canvas>
+
+  <script>
+    const ws = new WebSocket(
+    location.origin.replace(/^http/, "ws") // auto-connect to same host
+  );
+    const canvas = document.getElementById("pond");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const fishImages = ["fish1.png", "fish2.png", "fish3.png"];
+    const myFish = fishImages[Math.floor(Math.random() * fishImages.length)];
+
+    const fish = new Image();
+    fish.src = myFish;
+
+    let mouseX = canvas.width / 2;
+    let mouseY = canvas.height / 2;
+    let fishX = mouseX;
+    let fishY = mouseY;
+    let angle = 0;
+
+    document.addEventListener("mousemove", (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // smooth follow
+      fishX += (mouseX - fishX) * 0.05;
+      fishY += (mouseY - fishY) * 0.05;
+
+      // face the direction
+      const dx = mouseX - fishX;
+      const dy = mouseY - fishY;
+      angle = Math.atan2(dy, dx);
+
+      if (fish.complete) {
+        ctx.save();
+        ctx.translate(fishX, fishY);
+        ctx.rotate(angle);
+        ctx.drawImage(fish, -25, -15, 50, 30);
+        ctx.restore();
+      }
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+
+    window.addEventListener("resize", () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html>
