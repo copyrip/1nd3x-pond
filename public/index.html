@@ -1,79 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Fish Follower</title>
+  <meta charset="UTF-8">
+  <title>Shared Cursors</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: linear-gradient(#aef, #58c);
-      height: 100vh;
+    body { margin:0; height:100vh; overflow:hidden; cursor:none; background:#fafafa; }
+    .cursor {
+      position:absolute;
+      pointer-events:none;
+      transform:translate(-50%, -50%);
+      text-align:center;
+      font-family:sans-serif;
     }
-    canvas {
-      display: block;
-      width: 100vw;
-      height: 100vh;
+    .username {
+      font-size:12px;
+      color:#333;
+      margin-top:-15px;
     }
+    .controls {
+      position:fixed;
+      top:10px; left:10px;
+      background:white;
+      padding:10px;
+      border:1px solid #ccc;
+      border-radius:5px;
+    }
+    .controls input, .controls select { margin:5px; }
   </style>
 </head>
 <body>
-  <iframe width="560" height="315" src="https://www.youtube.com/embed/MGMgQMQDtoM?si=4IGYLELrkXxvAgd7" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-  <canvas id="pond"></canvas>
+  <div class="controls">
+    Username: <input id="username" placeholder="Enter name">
+    Cursor Color: <input type="color" id="color" value="#ff0000">
+    Hat: 
+    <select id="hat">
+      <option value="">None</option>
+      <option value="https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif">Party</option>
+      <option value="https://media.giphy.com/media/26BRzozg4TCBXv6QU/giphy.gif">Top Hat</option>
+    </select>
+  </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    const ws = new WebSocket(
-    location.origin.replace(/^http/, "ws") // auto-connect to same host
-  );
-    const canvas = document.getElementById("pond");
-    const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const socket = io();
+    const cursors = {};
 
-    const fishImages = ["fish1.gif", "fish2.gif", "fish3.gif"];
-    const myFish = fishImages[Math.floor(Math.random() * fishImages.length)];
+    let username = '';
+    let color = '#ff0000';
+    let hat = '';
 
-    const fish = new Image();
-    fish.src = myFish;
+    const cursorEl = document.createElement('div');
+    cursorEl.classList.add('cursor');
+    cursorEl.innerHTML = '<div id="hat-img"></div><div class="username" id="user-label"></div>';
+    document.body.appendChild(cursorEl);
 
-    let mouseX = canvas.width / 2;
-    let mouseY = canvas.height / 2;
-    let fishX = mouseX;
-    let fishY = mouseY;
-    let angle = 0;
+    const hatImg = document.getElementById('hat-img');
+    const userLabel = document.getElementById('user-label');
 
-    document.addEventListener("mousemove", (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
+    document.getElementById('username').addEventListener('input', e => username = e.target.value);
+    document.getElementById('color').addEventListener('input', e => color = e.target.value);
+    document.getElementById('hat').addEventListener('change', e => {
+      hat = e.target.value;
+      hatImg.innerHTML = hat ? `<img src="${hat}" width="32" height="32">` : '';
     });
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.addEventListener('mousemove', e => {
+      cursorEl.style.left = e.clientX + 'px';
+      cursorEl.style.top = e.clientY + 'px';
+      userLabel.textContent = username;
+      userLabel.style.color = color;
 
-      // smooth follow
-      fishX += (mouseX - fishX) * 0.05;
-      fishY += (mouseY - fishY) * 0.05;
+      socket.emit('cursor-move', { x: e.clientX, y: e.clientY, username, color, hat });
+    });
 
-      // face the direction
-      const dx = mouseX - fishX;
-      const dy = mouseY - fishY;
-      angle = Math.atan2(dy, dx);
+    socket.on('cursors-update', data => {
+      for (let id in data) {
+        if (id === socket.id) continue;
 
-      if (fish.complete) {
-        ctx.save();
-        ctx.translate(fishX, fishY);
-        ctx.rotate(angle);
-        ctx.drawImage(fish, -25, -15, 50, 30);
-        ctx.restore();
+        if (!cursors[id]) {
+          const el = document.createElement('div');
+          el.classList.add('cursor');
+          el.innerHTML = '<div class="hat"></div><div class="username"></div>';
+          document.body.appendChild(el);
+          cursors[id] = el;
+        }
+
+        const c = cursors[id];
+        c.style.left = data[id].x + 'px';
+        c.style.top = data[id].y + 'px';
+        c.querySelector('.username').textContent = data[id].username;
+        c.querySelector('.username').style.color = data[id].color;
+        c.querySelector('.hat').innerHTML = data[id].hat ? `<img src="${data[id].hat}" width="32" height="32">` : '';
       }
 
-      requestAnimationFrame(draw);
-    }
-    draw();
-
-    window.addEventListener("resize", () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      // Remove disconnected users
+      for (let id in cursors) {
+        if (!data[id]) {
+          cursors[id].remove();
+          delete cursors[id];
+        }
+      }
     });
   </script>
 </body>

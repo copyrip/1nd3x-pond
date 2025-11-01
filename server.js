@@ -1,46 +1,29 @@
-import express from "express";
-import { WebSocketServer } from "ws";
-import http from "http";
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const io = new Server(server);
 
-app.use(express.static("public")); // serve index.html, images, etc.
+// Serve static files from "public"
+app.use(express.static('public'));
 
-const clients = new Map();
-const fishImages = ["fish1.png", "fish2.png", "fish3.png", "fish4.png"];
+let users = {};
 
-function broadcastAll() {
-  const data = Array.from(clients.values());
-  const msg = JSON.stringify({ type: "update", data });
-  for (const ws of clients.keys()) ws.send(msg);
-}
+io.on('connection', (socket) => {
+  users[socket.id] = {};
 
-wss.on("connection", (ws) => {
-  const id = Date.now().toString(36);
-  const fish = fishImages[Math.floor(Math.random() * fishImages.length)];
-  clients.set(ws, { id, fish, x: 0, y: 0 });
-
-  ws.send(JSON.stringify({ type: "init", id, fish }));
-
-  ws.on("message", (msg) => {
-    const data = JSON.parse(msg);
-    if (data.type === "move") {
-      const user = clients.get(ws);
-      if (user) {
-        user.x = data.x;
-        user.y = data.y;
-        broadcastAll();
-      }
-    }
+  socket.on('cursor-move', (data) => {
+    users[socket.id] = data;
+    io.emit('cursors-update', users);
   });
 
-  ws.on("close", () => {
-    clients.delete(ws);
-    broadcastAll();
+  socket.on('disconnect', () => {
+    delete users[socket.id];
+    io.emit('cursors-update', users);
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Fishpond running on port " + PORT));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
