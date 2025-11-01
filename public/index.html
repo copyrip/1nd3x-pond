@@ -2,44 +2,121 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Multiplayer Cookie Clicker</title>
+<title>Real-time Mouse Tracker</title>
 <style>
-    body { margin:0; overflow:hidden; background:#f0f0f0; font-family:sans-serif; }
-    .cursor { position:absolute; pointer-events:none; text-align:center; }
-    .userList { position:fixed; top:10px; right:10px; background:#fff; padding:10px; border-radius:8px; }
-    #points { position:fixed; top:10px; left:10px; font-weight:bold; }
-    button { position:absolute; padding:10px 20px; cursor:pointer; }
-    .clickEffect { position:absolute; width:32px; height:32px; pointer-events:none; animation: pop 0.5s forwards; }
-    @keyframes pop { 0%{opacity:1;transform:scale(0.5);} 100%{opacity:0;transform:scale(1.5);} }
+    body, html { margin: 0; padding: 0; overflow: hidden; }
+    canvas { position: absolute; top: 0; left: 0; }
+    .cursor { position: absolute; pointer-events: none; font-weight: bold; }
+    #controls { position: fixed; top: 10px; left: 10px; background: #fff; padding: 10px; border-radius: 5px; z-index: 10;}
 </style>
 </head>
 <body>
-  <div id="customizePanel" style="position:fixed; bottom:10px; left:10px; background:#fff; padding:10px; border-radius:8px;">
-    <div>
-        <label>Cursor Color: </label>
-        <input type="color" id="cursorColor" value="#ff0000">
-    </div>
-    <div>
-        <label>Username Color: </label>
-        <input type="color" id="nameColor" value="#000000">
-    </div>
-    <div>
-        <label>Username: </label>
-        <input type="text" id="usernameInput" maxlength="12">
-    </div>
-    <button id="applyBtn">Apply</button>
-</div>
-
-<div id="points">Points: 0</div>
-<div class="userList">
+<div id="controls">
+    Username: <input type="text" id="username"> <input type="color" id="usernameColor"><br>
+    Cursor Color: <input type="color" id="cursorColor"><br>
     <div>Connected users: <span id="userCount">0</span></div>
-    <ul id="users"></ul>
-    <div>Ping: <span id="ping">0ms</span></div>
+    <ul id="userList"></ul>
 </div>
+<canvas id="drawCanvas"></canvas>
+<script>
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-<button id="systemBtn" style="top:50%; left:50%;">System.exe stop to function</button>
+const ws = new WebSocket(`ws://${location.host}`);
+let id;
+let users = {}; // {id: {username, color, cursorColor, connectTime, x, y, el}}
+const cursors = {};
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="app.js"></script>
+function updateUserList() {
+    const userList = document.getElementById('userList');
+    userList.innerHTML = '';
+    Object.values(users).forEach(u => {
+        const li = document.createElement('li');
+        const onlineTime = Math.floor((Date.now() - u.connectTime)/1000);
+        const minutes = Math.floor(onlineTime / 60);
+        const seconds = onlineTime % 60;
+        li.textContent = `${u.username} (online: ${minutes}m ${seconds}s)`;
+        li.style.color = u.color;
+        userList.appendChild(li);
+    });
+    document.getElementById('userCount').textContent = Object.keys(users).length;
+}
+
+function createCursor(id, user) {
+    const el = document.createElement('div');
+    el.className = 'cursor';
+    el.textContent = user.username;
+    el.style.color = user.color;
+    document.body.appendChild(el);
+    cursors[id] = el;
+}
+
+function updateCursors() {
+    Object.keys(users).forEach(uid => {
+        if (!cursors[uid]) createCursor(uid, users[uid]);
+        const u = users[uid];
+        cursors[uid].style.left = u.x + 'px';
+        cursors[uid].style.top = u.y + 'px';
+        cursors[uid].style.color = u.color;
+    });
+}
+
+ws.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+    if (data.type === 'init') {
+        id = data.id;
+        users = data.users;
+        updateUserList();
+    } else if (data.type === 'mousemove') {
+        if (users[data.id]) {
+            users[data.id].x = data.x;
+            users[data.id].y = data.y;
+            updateCursors();
+        }
+    } else if (data.type === 'updateUsers') {
+        users = data.users;
+        updateUserList();
+    } else if (data.type === 'draw') {
+        ctx.fillStyle = data.color;
+        ctx.beginPath();
+        ctx.arc(data.x, data.y, 5, 0, Math.PI*2);
+        ctx.fill();
+    }
+};
+
+document.addEventListener('mousemove', e => {
+    ws.send(JSON.stringify({type: 'mousemove', x: e.clientX, y: e.clientY}));
+});
+
+canvas.addEventListener('click', e => {
+    ws.send(JSON.stringify({type: 'draw', x: e.clientX, y: e.clientY}));
+    ctx.fillStyle = document.getElementById('cursorColor').value;
+    ctx.beginPath();
+    ctx.arc(e.clientX, e.clientY, 5, 0, Math.PI*2);
+    ctx.fill();
+});
+
+// Controls
+const usernameInput = document.getElementById('username');
+const usernameColorInput = document.getElementById('usernameColor');
+const cursorColorInput = document.getElementById('cursorColor');
+
+usernameInput.addEventListener('input', () => {
+    ws.send(JSON.stringify({type: 'updateUsername', username: usernameInput.value, color: usernameColorInput.value}));
+});
+
+usernameColorInput.addEventListener('input', () => {
+    ws.send(JSON.stringify({type: 'updateUsername', username: usernameInput.value, color: usernameColorInput.value}));
+});
+
+cursorColorInput.addEventListener('input', () => {
+    ws.send(JSON.stringify({type: 'updateCursorColor', cursorColor: cursorColorInput.value}));
+});
+
+// Timer update
+setInterval(updateUserList, 1000);
+</script>
 </body>
 </html>
